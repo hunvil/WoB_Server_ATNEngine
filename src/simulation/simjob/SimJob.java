@@ -402,6 +402,15 @@ public class SimJob {
         }
     }
 
+    public void setSpeciesZoneList(List<SpeciesZoneType> list){
+        //copy SZTs
+        this.speciesZoneList = new ArrayList<SpeciesZoneType>();
+//        for (SpeciesZoneType szt : list) {
+//            SimJobSZT srcSJSZT = (SimJobSZT) szt;
+//            SimJobSZT sjSZT = new SimJobSZT(srcSJSZT);
+            this.speciesZoneList.addAll(list);
+//        }  
+    }
     /* 4/21/14, JTC, added per species biomass */
     public String buildNodeConfig() throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException {
         String configStr;

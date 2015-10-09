@@ -38,8 +38,8 @@ public class SpeciesZoneType {
     protected double currentBiomass;
     protected SpeciesTypeEnum type;
     protected double trophicLevel;
-    protected boolean biomassUpdated = false;
-    protected boolean paramUpdated = false;  //5/6/14, JTC, added
+    public boolean biomassUpdated = false;
+    public boolean paramUpdated = false;  //5/6/14, JTC, added
     protected SpeciesType speciesType;  //4/20/14, JTC, added
 
     //4/14, JTC, replaced hard-coded "-1" assignments with Constants.PARAM_INITVALUE.

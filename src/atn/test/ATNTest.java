@@ -96,332 +96,17 @@ public class ATNTest {
 	       atn = new ATNEngine();
 
 	       //test1();		//Simple simulation job example, does not save to DB.
-	       //test2();
-	       //test3();
-	       //test4();		//Tests for all simulation jobs whose include = 1
+	       //test2();		//SimJobManager testing
+	       //test3();		//SimJobConverge testing
+	       //test4();		//Tests Margin of error calculation for all simulation jobs whose include = 1 
+	       //test7();	//Root mean square error
+	       //test8(); 	//Root mean square percentage error
 	       
-	       test5(); //Testing EcosystemController
+	       test6();  //Testing biomass chart display for 1 job and saving the chart to a jpeg file
 	       
-	       //test6();  //Testing biomass chart display for 1 job and saving the chart to a jpeg file
-	       //test7();	//Discard after instantiating the BulirschStoerIntegration class
-	   }
-	  
-	   public static void test7() throws FileNotFoundException, SQLException, SimulationException {
-	        List<Integer> simJobs = null;
-	        SimJob job = null;
-	        SimJobManager jobMgr = new SimJobManager();
-	        initOutputStreams();
-	        System.out.println("Reading job IDs and initializing output files...");
-	        try {
-	            //inclusion is dictated by "include" field in table
-	            //typically, I would only include one or two jobs
-	            simJobs = SimJobDAO.getJobIdsToInclude("");
-
-	        } catch (SQLException ex) {
-	            Logger.getLogger(ATN.class
-	                    .getName()).log(Level.SEVERE,
-	                            null, ex);
-	        }
-
-	        //loop through all identified jobs; load and process
-	        for (Integer jobId : simJobs) {
-	            System.out.printf("Processing job ID %d\n", jobId);
-	            try {
-	                job = SimJobDAO.loadCompletedJob(jobId);
-
-	            } catch (SQLException ex) {
-	                Logger.getLogger(ATN.class
-	                        .getName()).
-	                        log(Level.SEVERE, null, ex);
-	            }
-	            if (job == null) {
-	                continue;
-	            }
-	           
-	            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
-	            
-		         //Biomass generated via Web Services
-	            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
-	            int speciesCnt = ecosysTimesteps.getNodeList().size();
-	            int timesteps = ecosysTimesteps.getTimesteps();
-	            //loop through node values and assemble summary data
-	            int[] speciesID = new int[speciesCnt];
-	            SimJobSZT[] sztArray = new SimJobSZT[speciesCnt];
-	            int spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
-	            }
-	            double[][] webServicesData = new double[speciesCnt][timesteps];
-	            
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        webServicesData[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
-	            }
-	            
-	            //Biomass generated via ATN
-	            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
-	            speciesCnt = ecosysTimesteps.getNodeList().size();
-	            timesteps = ecosysTimesteps.getTimesteps();
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
-	            }
-	            double[][] calcBiomass = new double[speciesCnt][timesteps];
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        calcBiomass[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
-	            }
-	            
-	            //output data
-	            //A. print header
-	            psATN.printf("timesteps JobID" + jobId);
-	            for (int i = 0; i < timesteps; i++) {
-	                psATN.printf(",%d", i);
-	            }
-	            psATN.println();
-	            
-	            //loop through each species
-	            for (int i = 0; i < speciesCnt; i++) {
-	                if(Constants.useSimEngine){
-	                    psATN.printf("i.%d.sim", speciesID[i]);
-	     	           //B. print WebServices simulation data for species
-	     	           for (int t = 0; t < timesteps; t++) {
-	     	               psATN.printf(",%9.0f", webServicesData[i][t]);
-	     	           }
-	     	           psATN.println();
-	                }
-	                
-	                //B. print combined biomass contributions (i.e. locally calculated biomass)
-	                //for current species.
-	                psATN.printf("i.%d.calc", speciesID[i]);
-	                for (int t = 0; t < timesteps; t++) {
-	                    psATN.printf(",%9.0f", calcBiomass[i][t]);
-	                }
-	                psATN.println();
-	                
-	                //calculate the difference between 
-	                if(Constants.useSimEngine){
-	                	psATN.printf("i.%d.(calc-sim)/sim", speciesID[i]);
-	                	double[] percentError = new double[timesteps];
-		                for (int t = 0; t < timesteps; t++) {
-		                	percentError[t] = (Math.abs(calcBiomass[i][t] - webServicesData[i][t]) / webServicesData[i][t]) * 100;
-		                    psATN.printf(",%9.6f", percentError[t]);
-		                }
-		                psATN.println();
-		                double totalPercentError = 0.0;
-		                for (int t = 0; t < timesteps; t++) {
-		                	totalPercentError += percentError[t];
-		                }
-		                double meanPercentError = totalPercentError / timesteps;
-		                
-		                double[] differenceInErrorAndMean = new double[timesteps];
-		                psATN.printf(",");
-		                for (int t = 1; t < timesteps; t++) {
-		                	differenceInErrorAndMean[t] = percentError[t] - meanPercentError;
-		                    psATN.printf(",%9.6f", differenceInErrorAndMean[t]);
-		                }
-		                psATN.println();
-		                
-		                double[] differenceInErrorAndMeanSqr = new double[timesteps];
-		                psATN.printf(",");
-		                for (int t = 1; t < timesteps; t++) {
-		                	differenceInErrorAndMeanSqr[t] = Math.pow(differenceInErrorAndMean[t],2);
-		                    psATN.printf(",%9.6f", differenceInErrorAndMeanSqr[t]);
-		                }
-
-		                
-		                double differenceInErrorAndMeanSqrTotal = 0.0;
-		                for (int t = 0; t < timesteps; t++) {
-		                	differenceInErrorAndMeanSqrTotal += differenceInErrorAndMeanSqr[t];
-		                }
-		                double differenceInErrorAndMeanSqrAverage = differenceInErrorAndMeanSqrTotal/timesteps;
-		                psATN.printf(",%9.6f", differenceInErrorAndMeanSqrAverage);
-		                
-		                double standardDeviation = Math.sqrt(differenceInErrorAndMeanSqrAverage);
-		                psATN.printf(",%9.6f", standardDeviation);
-		                
-		                //the z*-value is 1.96 if you want to be about 95% confident.
-		                double standardError = 1.96 * (standardDeviation / Math.sqrt(timesteps));
-		                psATN.printf(",%9.6f", standardError);
-		                psATN.println();
-	                }
-	            }
-	            
-//		       numberOdJobsToProcess++;
-//		       if(numberOdJobsToProcess == 1){
-//		    	   break;
-//		       }
-	        }
-	        
-	        System.out.println("Processing complete.");
-	   }
-	   
-	   public static void test6() throws FileNotFoundException, SQLException, SimulationException {
-	        List<Integer> simJobs = null;
-	        SimJob job = null;
-	        SimJobManager jobMgr = new SimJobManager();
-
-	        System.out.println("Reading job IDs and initializing output files...");
-	        try {
-	            //inclusion is dictated by "include" field in table
-	            //typically, I would only include one or two jobs
-	            simJobs = SimJobDAO.getJobIdsToInclude("");
-
-	        } catch (SQLException ex) {
-	            Logger.getLogger(ATN.class
-	                    .getName()).log(Level.SEVERE,
-	                            null, ex);
-	        }
-
-	        numberOdJobsToProcess = 0;
-	        //loop through all identified jobs; load and process
-	        for (Integer jobId : simJobs) {
-		        initOutputStreams();
-	            System.out.printf("Processing job ID %d\n", jobId);
-	            try {
-	                job = SimJobDAO.loadCompletedJob(jobId);
-
-	            } catch (SQLException ex) {
-	                Logger.getLogger(ATN.class
-	                        .getName()).
-	                        log(Level.SEVERE, null, ex);
-	            }
-	            if (job == null) {
-	                continue;
-	            }
-	           
-	            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
-	            
-		         //Biomass generated via Web Services
-	            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
-	            int speciesCnt = ecosysTimesteps.getNodeList().size();
-	            int timesteps = ecosysTimesteps.getTimesteps();
-	            //loop through node values and assemble summary data
-	            int[] speciesID = new int[speciesCnt];
-	            SimJobSZT[] sztArray = new SimJobSZT[speciesCnt];
-	            int spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
-	            }
-	            double[][] webServicesData = new double[speciesCnt][timesteps];
-	            
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        webServicesData[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
-	            }
-	            
-	            //Biomass generated via ATN
-	            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
-	            speciesCnt = ecosysTimesteps.getNodeList().size();
-	            timesteps = ecosysTimesteps.getTimesteps();
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
-	            }
-	            double[][] calcBiomass = new double[speciesCnt][timesteps];
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        calcBiomass[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
-	            }
-	            
-	            //output data
-	            //A. print header
-	            psATN.printf("timesteps JobID" + jobId);
-	            for (int i = 0; i < timesteps; i++) {
-	                psATN.printf(",%d", i);
-	            }
-	            psATN.println();
-	            
-	            //loop through each species
-	            for (int i = 0; i < speciesCnt; i++) {
-	                if(Constants.useSimEngine){
-	                    psATN.printf("i.%d.sim", speciesID[i]);
-	     	           //B. print WebServices simulation data for species
-	     	           for (int t = 0; t < timesteps; t++) {
-	     	               psATN.printf(",%9.0f", webServicesData[i][t]);
-	     	           }
-	     	           psATN.println();
-	                }
-	                
-	                //B. print combined biomass contributions (i.e. locally calculated biomass)
-	                //for current species.
-	                psATN.printf("i.%d.calc", speciesID[i]);
-	                for (int t = 0; t < timesteps; t++) {
-	                    psATN.printf(",%9.0f", calcBiomass[i][t]);
-	                }
-	                psATN.println();
-		       }
-	            System.out.println("numberOdJobsToProcess-"+numberOdJobsToProcess++);
-//		        if(numberOdJobsToProcess == 1){
-//		        	break;
-//		        }
-		        String filePath = Functions.getLastCSVFilePath();
-		        final BiomassChart demo = new BiomassChart("Biomass Chart", filePath);
-		        //Render chart on screen
-		        demo.pack();
-		        RefineryUtilities.centerFrameOnScreen(demo);
-		        demo.setVisible(true);
-		        //save chart which is rendered on screen
-		        demo.saveChart(filePath);
-	        }
-	        
-//	        String filePath = Functions.getLastCSVFilePath();
-//	        final BiomassChart demo = new BiomassChart("Biomass Chart", filePath);
-//	        //Render chart on screen
-//	        demo.pack();
-//	        RefineryUtilities.centerFrameOnScreen(demo);
-//	        demo.setVisible(true);
-//	        //save chart which is rendered on screen
-//	        demo.saveChart(filePath);
-	        System.out.println("Processing complete.");
+	       //Going forward we set Constants.useAtnEngine = false
+	       //test5(); //Testing EcosystemController
+	       
 	   }
 	   
 	   public static void test5(){
@@ -508,7 +193,7 @@ public class ATNTest {
 //		            speciesList.put(20, 5000);  //species_id = 20, node_id = 20, biomass = 5000 , per unit biomass = 0.04 		(both in simtest_node_params && species tables)
 //		            speciesList.put(31, 5000);  //species_id = 31, node_id = 31, biomass = 5000 , per unit biomass = 0.0075 	(both in simtest_node_params && species tables)
 		            logger.info("Adding nodes to ecosystem");
-			        speciesList.put(1005, 2000); //Grass and herbs with 2000 biomass
+//			        speciesList.put(1005, 2000); //Grass and herbs with 2000 biomass
 			        //speciesList.put(2, 1000);		//African Clawless Otter
 			        EcosystemController.createEcosystem(ecosystem, speciesList);
 		        }
@@ -550,7 +235,7 @@ public class ATNTest {
 	        EcosystemDAO.updateTime(ecosystem.getID());
 
 	        HashMap<Integer, Integer> speciesList = new HashMap<Integer, Integer>();
-	        //speciesList.put(1005, 1000);	//To start we start with 1000 and add another 1000 to keep it consistent
+	        speciesList.put(1005, 2000);	//To start we start with 1000 and add another 1000 to keep it consistent
 	        speciesList.put(2, 2494);		//African Clawless Otter
 	        speciesList.put(42, 240);		//African Grey Hornbill
 	        speciesList.put(31, 1415);		//Tree Mouse 	
@@ -603,7 +288,498 @@ public class ATNTest {
 	       	        
 	   }
 	   
+	   public static void test8() throws FileNotFoundException, SQLException, SimulationException {
+	        List<Integer> simJobs = null;
+	        SimJob job = null;
+	        SimJobManager jobMgr = new SimJobManager();
+	        initOutputStreams();
+	        System.out.println("Reading job IDs and initializing output files...");
+	        try {
+	            //inclusion is dictated by "include" field in table
+	            //typically, I would only include one or two jobs
+	            simJobs = SimJobDAO.getJobIdsToInclude("");
 
+	        } catch (SQLException ex) {
+	            Logger.getLogger(ATN.class
+	                    .getName()).log(Level.SEVERE,
+	                            null, ex);
+	        }
+
+	        //loop through all identified jobs; load and process
+	        for (Integer jobId : simJobs) {
+	            System.out.printf("Processing job ID %d\n", jobId);
+	            try {
+	                job = SimJobDAO.loadCompletedJob(jobId);
+
+	            } catch (SQLException ex) {
+	                Logger.getLogger(ATN.class
+	                        .getName()).
+	                        log(Level.SEVERE, null, ex);
+	            }
+	            if (job == null) {
+	                continue;
+	            }
+	           
+	            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
+	            
+	            int timesteps = 0;
+	            int speciesCnt = 0;
+	            int[] speciesID = null;
+	            SimJobSZT[] sztArray;
+	            double[][] webServicesData = null;
+		         //Biomass generated via Web Services
+	            if(job.getCsv() != null && !job.getCsv().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            //loop through node values and assemble summary data
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            webServicesData = new double[speciesCnt][timesteps];
+		            
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        webServicesData[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
+	            }
+	            
+	            //Biomass generated via ATN
+	            double[][] calcBiomass = null;
+	            if(job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            calcBiomass = new double[speciesCnt][timesteps];
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        calcBiomass[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
+	            }
+	            //output data
+	            //A. print header
+	            psATN.printf("timesteps JobID" + jobId);
+	            for (int i = 0; i < timesteps; i++) {
+	                psATN.printf(",%d", i);
+	            }
+	            psATN.println();
+	            
+	            //loop through each species
+	            for (int i = 0; i < speciesCnt; i++) {
+	            	if(job.getCsv() != null && !job.getCsv().isEmpty()){
+	                    psATN.printf("i.%d.sim", speciesID[i]);
+	     	           //B. print WebServices simulation data for species
+	     	           for (int t = 0; t < timesteps; t++) {
+	     	               psATN.printf(",%9.0f", webServicesData[i][t]);
+	     	           }
+	     	           psATN.println();
+	                }
+	                
+	                //B. print combined biomass contributions (i.e. locally calculated biomass)
+	                //for current species.
+	                psATN.printf("i.%d.calc", speciesID[i]);
+	                for (int t = 0; t < timesteps; t++) {
+	                    psATN.printf(",%9.0f", calcBiomass[i][t]);
+	                }
+	                psATN.println();
+	                
+	                //calculate the difference between 
+	                if(job.getCsv() != null && !job.getCsv().isEmpty() && job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+	                	psATN.printf("i.%d.(calc-sim)/sim", speciesID[i]);
+	                	double[] error = new double[timesteps];
+		                for (int t = 0; t < timesteps; t++) {
+		                	error[t] = (webServicesData[i][t] - calcBiomass[i][t])/ webServicesData[i][t];
+		                    psATN.printf(",%9.6f", error[t]);
+		                }
+		                psATN.println();
+
+//		                //population mean of a finite population of size N with values xi is given by mu
+//		                //population variance of a finite population of size N with values xi is given by sigmaSquare
+		                double[] squareOfError = new double[timesteps];
+		                psATN.printf(",");
+		                for (int t = 1; t < timesteps; t++) {
+		                	squareOfError[t] = Math.pow(error[t],2);
+		                    psATN.printf(",%9.6f", squareOfError[t]);
+		                }
+		                psATN.println();
+		                
+		                double sumOfErrorSquared = 0;
+		                for (int t = 1; t < timesteps; t++) {
+		                	sumOfErrorSquared += squareOfError[t];
+		                }
+
+		                double meanSquarePercentageError = sumOfErrorSquared/timesteps;
+		                psATN.printf("Mean Squared Percentage Error ,%9.6f", meanSquarePercentageError);
+		                psATN.println();
+		                
+		                double rootMeanSquarePercentageError = Math.sqrt(meanSquarePercentageError);;
+		                psATN.printf("Root Mean Square Percentage Error ,%9.6f", rootMeanSquarePercentageError);
+		                psATN.println();
+
+	                }
+	            }
+	        }
+	        
+	        System.out.println("Processing complete.");
+	   }
+	   
+	   public static void test7() throws FileNotFoundException, SQLException, SimulationException {
+	        List<Integer> simJobs = null;
+	        SimJob job = null;
+	        SimJobManager jobMgr = new SimJobManager();
+	        initOutputStreams();
+	        System.out.println("Reading job IDs and initializing output files...");
+	        try {
+	            //inclusion is dictated by "include" field in table
+	            //typically, I would only include one or two jobs
+	            simJobs = SimJobDAO.getJobIdsToInclude("");
+
+	        } catch (SQLException ex) {
+	            Logger.getLogger(ATN.class
+	                    .getName()).log(Level.SEVERE,
+	                            null, ex);
+	        }
+
+	        //loop through all identified jobs; load and process
+	        for (Integer jobId : simJobs) {
+	            System.out.printf("Processing job ID %d\n", jobId);
+	            try {
+	                job = SimJobDAO.loadCompletedJob(jobId);
+
+	            } catch (SQLException ex) {
+	                Logger.getLogger(ATN.class
+	                        .getName()).
+	                        log(Level.SEVERE, null, ex);
+	            }
+	            if (job == null) {
+	                continue;
+	            }
+	           
+	            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
+	            
+	            int timesteps = 0;
+	            int speciesCnt = 0;
+	            int[] speciesID = null;
+	            SimJobSZT[] sztArray;
+	            double[][] webServicesData = null;
+		         //Biomass generated via Web Services
+	            if(job.getCsv() != null && !job.getCsv().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            //loop through node values and assemble summary data
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            webServicesData = new double[speciesCnt][timesteps];
+		            
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        webServicesData[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
+	            }
+	            
+	            //Biomass generated via ATN
+	            double[][] calcBiomass = null;
+	            if(job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            calcBiomass = new double[speciesCnt][timesteps];
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        calcBiomass[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
+	            }
+	            //output data
+	            //A. print header
+	            psATN.printf("timesteps JobID" + jobId);
+	            for (int i = 0; i < timesteps; i++) {
+	                psATN.printf(",%d", i);
+	            }
+	            psATN.println();
+	            
+	            //loop through each species
+	            for (int i = 0; i < speciesCnt; i++) {
+	            	if(job.getCsv() != null && !job.getCsv().isEmpty()){
+	                    psATN.printf("i.%d.sim", speciesID[i]);
+	     	           //B. print WebServices simulation data for species
+	     	           for (int t = 0; t < timesteps; t++) {
+	     	               psATN.printf(",%9.0f", webServicesData[i][t]);
+	     	           }
+	     	           psATN.println();
+	                }
+	                
+	                //B. print combined biomass contributions (i.e. locally calculated biomass)
+	                //for current species.
+	                psATN.printf("i.%d.calc", speciesID[i]);
+	                for (int t = 0; t < timesteps; t++) {
+	                    psATN.printf(",%9.0f", calcBiomass[i][t]);
+	                }
+	                psATN.println();
+	                
+	                //calculate the difference between 
+	                if(job.getCsv() != null && !job.getCsv().isEmpty() && job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+	                	psATN.printf("i.%d.(calc-sim)/sim", speciesID[i]);
+	                	double[] error = new double[timesteps];
+		                for (int t = 0; t < timesteps; t++) {
+		                	error[t] = (calcBiomass[i][t] - webServicesData[i][t]);
+		                    psATN.printf(",%9.6f", error[t]);
+		                }
+		                psATN.println();
+		                
+//		                //population mean of a finite population of size N with values xi is given by mu
+//		                //population variance of a finite population of size N with values xi is given by sigmaSquare
+		                double[] squareOfError = new double[timesteps];
+		                psATN.printf(",");
+		                for (int t = 1; t < timesteps; t++) {
+		                	squareOfError[t] = Math.pow(error[t],2);
+		                    psATN.printf(",%9.6f", squareOfError[t]);
+		                }
+		                psATN.println();
+		                
+		                double sumOfErrorSquared = 0;
+		                for (int t = 1; t < timesteps; t++) {
+		                	sumOfErrorSquared += squareOfError[t];
+		                }
+
+		                double meanSquareError = sumOfErrorSquared/timesteps;
+		                psATN.printf("Mean Squared Error ,%9.6f", meanSquareError);
+		                psATN.println();
+		                
+		                double rootMeanSquareError = Math.sqrt(meanSquareError);;
+		                psATN.printf("Root Mean Square Error ,%9.6f", rootMeanSquareError);
+		                psATN.println();
+	                }
+	            }
+	        }
+	        
+	        System.out.println("Processing complete.");
+	   }
+
+  	   
+   public static void test6() throws FileNotFoundException, SQLException, SimulationException {
+        List<Integer> simJobs = null;
+        SimJob job = null;
+        SimJobManager jobMgr = new SimJobManager();
+
+        System.out.println("Reading job IDs and initializing output files...");
+        try {
+            //inclusion is dictated by "include" field in table
+            //typically, I would only include one or two jobs
+            simJobs = SimJobDAO.getJobIdsToInclude("");
+
+        } catch (SQLException ex) {
+            Logger.getLogger(ATN.class
+                    .getName()).log(Level.SEVERE,
+                            null, ex);
+        }
+
+        numberOdJobsToProcess = 0;
+        //loop through all identified jobs; load and process
+        for (Integer jobId : simJobs) {
+	        initOutputStreams();
+            System.out.printf("Processing job ID %d\n", jobId);
+            try {
+                job = SimJobDAO.loadCompletedJob(jobId);
+
+            } catch (SQLException ex) {
+                Logger.getLogger(ATN.class
+                        .getName()).
+                        log(Level.SEVERE, null, ex);
+            }
+            if (job == null) {
+                continue;
+            }
+           
+            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
+            
+            int timesteps = 0;
+            int speciesCnt = 0;
+            int[] speciesID = null;
+            SimJobSZT[] sztArray;
+            double[][] webServicesData = null;
+	         //Biomass generated via Web Services
+            if(job.getCsv() != null && !job.getCsv().isEmpty()){
+	            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
+	            speciesCnt = ecosysTimesteps.getNodeList().size();
+	            timesteps = ecosysTimesteps.getTimesteps();
+	            //loop through node values and assemble summary data
+	            speciesID = new int[speciesCnt];
+	            sztArray = new SimJobSZT[speciesCnt];
+	            int spNum = 0;
+	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+	                sztArray[spNum] = sjSzt;
+	                speciesID[spNum] = sjSzt.getNodeIndex();
+	                spNum++;
+	            }
+	            webServicesData = new double[speciesCnt][timesteps];
+	            
+	            spNum = 0;
+	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+	                //copy nodetimestep data to local array for easier access
+	                System.arraycopy(
+	                        nodeTimesteps.getBiomassArray(),
+	                        0,
+	                        webServicesData[spNum],
+	                        0,
+	                        timesteps
+	                );
+
+	                spNum++;
+	            }
+            }
+            
+            //Biomass generated via ATN
+            double[][] calcBiomass = null;
+            if(job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+	            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
+	            speciesCnt = ecosysTimesteps.getNodeList().size();
+	            timesteps = ecosysTimesteps.getTimesteps();
+	            speciesID = new int[speciesCnt];
+	            sztArray = new SimJobSZT[speciesCnt];
+	            int spNum = 0;
+	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+	                sztArray[spNum] = sjSzt;
+	                speciesID[spNum] = sjSzt.getNodeIndex();
+	                spNum++;
+	            }
+	            calcBiomass = new double[speciesCnt][timesteps];
+	            spNum = 0;
+	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+	                //copy nodetimestep data to local array for easier access
+	                System.arraycopy(
+	                        nodeTimesteps.getBiomassArray(),
+	                        0,
+	                        calcBiomass[spNum],
+	                        0,
+	                        timesteps
+	                );
+
+	                spNum++;
+	            }
+            }
+            
+            //output data
+            //A. print header
+            psATN.printf("timesteps JobID" + jobId);
+            for (int i = 0; i < timesteps; i++) {
+                psATN.printf(",%d", i);
+            }
+            psATN.println();
+            
+            //loop through each species
+            for (int i = 0; i < speciesCnt; i++) {
+            	if(job.getCsv() != null && !job.getCsv().isEmpty()){
+                    psATN.printf("i.%d.sim", speciesID[i]);
+     	           //B. print WebServices simulation data for species
+     	           for (int t = 0; t < timesteps; t++) {
+     	               psATN.printf(",%9.0f", webServicesData[i][t]);
+     	           }
+     	           psATN.println();
+                }
+                
+                //B. print combined biomass contributions (i.e. locally calculated biomass)
+                //for current species.
+                psATN.printf("i.%d.calc", speciesID[i]);
+                for (int t = 0; t < timesteps; t++) {
+                    psATN.printf(",%9.0f", calcBiomass[i][t]);
+                }
+                psATN.println();
+	       }
+            System.out.println("numberOdJobsToProcess-"+numberOdJobsToProcess++);
+//	        if(numberOdJobsToProcess == 1){
+//	        	break;
+//	        }
+	        String filePath = Functions.getLastCSVFilePath();
+	        final BiomassChart demo = new BiomassChart("Biomass Chart", filePath);
+	        //Render chart on screen
+	        demo.pack();
+	        RefineryUtilities.centerFrameOnScreen(demo);
+	        demo.setVisible(true);
+	        //save chart which is rendered on screen
+	        demo.saveChart(filePath);
+        }
+        
+//        String filePath = Functions.getLastCSVFilePath();
+//        final BiomassChart demo = new BiomassChart("Biomass Chart", filePath);
+//        //Render chart on screen
+//        demo.pack();
+//        RefineryUtilities.centerFrameOnScreen(demo);
+//        demo.setVisible(true);
+//        //save chart which is rendered on screen
+//        demo.saveChart(filePath);
+        System.out.println("Processing complete.");
+   }
+   
 	   public static void test4() throws FileNotFoundException, SQLException, SimulationException {
 	        List<Integer> simJobs = null;
 	        SimJob job = null;
@@ -638,62 +814,73 @@ public class ATNTest {
 	           
 	            EcosystemTimesteps ecosysTimesteps = new EcosystemTimesteps();
 	            
+	            int timesteps = 0;
+	            int speciesCnt = 0;
+	            int[] speciesID = null;
+	            SimJobSZT[] sztArray;
+	            double[][] webServicesData = null;
 		         //Biomass generated via Web Services
-	            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
-	            int speciesCnt = ecosysTimesteps.getNodeList().size();
-	            int timesteps = ecosysTimesteps.getTimesteps();
-	            //loop through node values and assemble summary data
-	            int[] speciesID = new int[speciesCnt];
-	            SimJobSZT[] sztArray = new SimJobSZT[speciesCnt];
-	            int spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
-	            }
-	            double[][] webServicesData = new double[speciesCnt][timesteps];
-	            
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        webServicesData[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
+	            if(job.getCsv() != null && !job.getCsv().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getCsv(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            //loop through node values and assemble summary data
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            webServicesData = new double[speciesCnt][timesteps];
+		            
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        webServicesData[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
 	            }
 	            
 	            //Biomass generated via ATN
-	            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
-	            speciesCnt = ecosysTimesteps.getNodeList().size();
-	            timesteps = ecosysTimesteps.getTimesteps();
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
-	                sztArray[spNum] = sjSzt;
-	                speciesID[spNum] = sjSzt.getNodeIndex();
-	                spNum++;
+	            double[][] calcBiomass = null;
+	            if(job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
+		            Functions.extractCSVBiomassData(job.getBiomassCSV(), ecosysTimesteps);
+		            speciesCnt = ecosysTimesteps.getNodeList().size();
+		            timesteps = ecosysTimesteps.getTimesteps();
+		            speciesID = new int[speciesCnt];
+		            sztArray = new SimJobSZT[speciesCnt];
+		            int spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                SimJobSZT sjSzt = job.getSpeciesZoneByNodeId(nodeTimesteps.getNodeId());
+		                sztArray[spNum] = sjSzt;
+		                speciesID[spNum] = sjSzt.getNodeIndex();
+		                spNum++;
+		            }
+		            calcBiomass = new double[speciesCnt][timesteps];
+		            spNum = 0;
+		            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
+		                //copy nodetimestep data to local array for easier access
+		                System.arraycopy(
+		                        nodeTimesteps.getBiomassArray(),
+		                        0,
+		                        calcBiomass[spNum],
+		                        0,
+		                        timesteps
+		                );
+	
+		                spNum++;
+		            }
 	            }
-	            double[][] calcBiomass = new double[speciesCnt][timesteps];
-	            spNum = 0;
-	            for (NodeTimesteps nodeTimesteps : ecosysTimesteps.getTimestepMapValues()) {
-	                //copy nodetimestep data to local array for easier access
-	                System.arraycopy(
-	                        nodeTimesteps.getBiomassArray(),
-	                        0,
-	                        calcBiomass[spNum],
-	                        0,
-	                        timesteps
-	                );
-
-	                spNum++;
-	            }
-	            
 	            //output data
 	            //A. print header
 	            psATN.printf("timesteps JobID" + jobId);
@@ -704,7 +891,7 @@ public class ATNTest {
 	            
 	            //loop through each species
 	            for (int i = 0; i < speciesCnt; i++) {
-	                if(Constants.useSimEngine){
+	            	if(job.getCsv() != null && !job.getCsv().isEmpty()){
 	                    psATN.printf("i.%d.sim", speciesID[i]);
 	     	           //B. print WebServices simulation data for species
 	     	           for (int t = 0; t < timesteps; t++) {
@@ -722,17 +909,12 @@ public class ATNTest {
 	                psATN.println();
 	                
 	                //calculate the difference between 
-	                if(Constants.useSimEngine){
+	                if(job.getCsv() != null && !job.getCsv().isEmpty() && job.getBiomassCSV() != null && !job.getBiomassCSV().isEmpty()){
 	                	psATN.printf("i.%d.(calc-sim)/sim", speciesID[i]);
-//	                	populationMean = 0.0;
-//	                	percentageErrorSqr = 0;
 	                	double[] percentError = new double[timesteps];
 		                for (int t = 0; t < timesteps; t++) {
 		                	percentError[t] = (Math.abs(calcBiomass[i][t] - webServicesData[i][t]) / webServicesData[i][t]) * 100;
 		                    psATN.printf(",%9.6f", percentError[t]);
-//		                    populationMean +=percentageError;
-//		                    percentageErrorSqr += Math.pow(percentageError,2);
-//		                    percentError[t] = percentageError;
 		                }
 		                psATN.println();
 		                double totalPercentError = 0.0;
@@ -741,16 +923,8 @@ public class ATNTest {
 		                }
 		                double meanPercentError = totalPercentError / timesteps;
 		                
-//		                double mu = populationMean/timesteps;
-//		                double muSqr = Math.pow(populationMean/timesteps,2);
-//		                psATN.printf(",%9.6f", mu);
-//		                psATN.printf(",%9.6f", muSqr);
-//		                
-//		                percentageErrorSqr = percentageErrorSqr / timesteps;
-//		                populationVariance = (percentageErrorSqr - muSqr);
 //		                //population mean of a finite population of size N with values xi is given by mu
 //		                //population variance of a finite population of size N with values xi is given by sigmaSquare
-//		                psATN.printf(",%9.6f", populationVariance);  //We computed the correct value for populationvariance
 		                double[] differenceInErrorAndMean = new double[timesteps];
 		                psATN.printf(",");
 		                for (int t = 1; t < timesteps; t++) {
@@ -783,11 +957,6 @@ public class ATNTest {
 		                psATN.println();
 	                }
 	            }
-	            
-//		       numberOdJobsToProcess++;
-//		       if(numberOdJobsToProcess == 1){
-//		    	   break;
-//		       }
 	        }
 	        
 	        System.out.println("Processing complete.");

@@ -1234,7 +1234,7 @@ public class SimulationEngine{
                 species.setParamUpdated(false);
             } else if (species.biomassUpdated) {
                 mUpdateBiomass.put(species.getNodeIndex(), species);
-                //species.setBiomassUpdated(false);
+                species.setBiomassUpdated(false);
             }
         }
 

@@ -59,9 +59,9 @@ public class BiomassChart extends ApplicationFrame {
         
         // create the chart...
         final JFreeChart chart = ChartFactory.createLineChart(
-            "Line Chart Demo 1",       // chart title
-            "Type",                    // domain axis label
-            "Value",                   // range axis label
+            "Biomass values generated from web services and ATN Engine",       // chart title
+            "Time",                    // domain axis label
+            "Biomass",                   // range axis label
             dataset,                   // data
             PlotOrientation.VERTICAL,  // orientation
             true,                      // include legend

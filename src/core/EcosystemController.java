@@ -108,7 +108,9 @@ public class EcosystemController {
         int env_score = (int) Math.round(Math.pow(biomass, 2) + Math.pow(speciesList.size(), 2));
         ScoreDAO.updateEnvironmentScore(ecosystem.getID(), env_score, env_score);
         // Generate CSVs from Web Services
-        createCSVs(ecosystem);
+        if(Constants.useSimEngine){
+        	createCSVs(ecosystem);
+        }
         // Logging Purposes Only
         {
             String tempList = "";

@@ -554,6 +554,7 @@ public class ATNEngine {
       HashMap<Integer, SpeciesZoneType> mUpdateParams = new HashMap<Integer, SpeciesZoneType>();
 
       SpeciesZoneType szt;
+      SimJob job = new SimJob();
 
       for (int node_id : addSpeciesNodeList.keySet()) {
           int addedBiomass = addSpeciesNodeList.get(node_id);
@@ -573,17 +574,17 @@ public class ATNEngine {
 
       //JTC, separated this to capture biomass updates made to ZoneNodes that
       //are not received through addSpeciesNodeList (biomass and param updates)
-//      for (SpeciesZoneType species : masterSpeciesList.values()) {
-//          //param update also updates biomass, so insert into that list
-//          //preferentially; o/w use biomass update list
-//          if (species.paramUpdated) {
-//              mUpdateParams.put(species.getNodeIndex(), species);
-//              species.setParamUpdated(false);
-//          } else if (species.biomassUpdated) {
-//              mUpdateBiomass.put(species.getNodeIndex(), species);
-//              //species.setBiomassUpdated(false);
-//          }
-//      }
+      for (SpeciesZoneType species : masterSpeciesList.values()) {
+          //param update also updates biomass, so insert into that list
+          //preferentially; o/w use biomass update list
+          if (species.paramUpdated) {
+              mUpdateParams.put(species.getNodeIndex(), species);
+              species.setParamUpdated(false);
+          } else if (species.biomassUpdated) {
+              mUpdateBiomass.put(species.getNodeIndex(), species);
+              //species.setBiomassUpdated(false);
+          }
+      }
 
       // Insert new species using web services
       if (!mNewSpecies.isEmpty()) {
@@ -595,6 +596,12 @@ public class ATNEngine {
 //                      false,
 //                      networkOrManipulationId
 //              );
+        	  
+        	  List<SpeciesZoneType> tempList= new ArrayList<SpeciesZoneType>();
+        	  for(SpeciesZoneType speciesZoneType : mNewSpecies.values()){
+        		  tempList.add(speciesZoneType);
+        	  }
+        	  job.setSpeciesZoneList(tempList);
           } catch (Exception ex) {
               Log.println_e(ex.getMessage());
           }
