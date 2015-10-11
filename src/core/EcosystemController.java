@@ -109,7 +109,7 @@ public class EcosystemController {
         ScoreDAO.updateEnvironmentScore(ecosystem.getID(), env_score, env_score);
         // Generate CSVs from Web Services
         if(Constants.useSimEngine){
-        	createCSVs(ecosystem);
+//        	createCSVs(ecosystem);
         }
         // Logging Purposes Only
         {
@@ -171,16 +171,16 @@ public class EcosystemController {
         for (int node_id : nodeBiomassList.keySet()) {
             nodeList[i++] = node_id;
         }
-        try {
-            //ecosystem.setManipulationID(se.createAndRunSeregenttiSubFoodweb(nodeList, networkName, 0, 0, false));
-        	//HJR
-            SimulationIds simIds = se.createAndRunSeregenttiSubFoodwebForSimJob(nodeList, 
-            		networkName, 0, 0, true);
-            ecosystem.setManipulationID(simIds.getManipId());
-            ecosystem.setNetworkId(simIds.getNetId());
-        } catch (SimulationException ex) {
-            System.err.println(ex.getMessage());
-        }
+//        try {
+//            //ecosystem.setManipulationID(se.createAndRunSeregenttiSubFoodweb(nodeList, networkName, 0, 0, false));
+//        	//HJR
+//            SimulationIds simIds = se.createAndRunSeregenttiSubFoodwebForSimJob(nodeList, 
+//            		networkName, 0, 0, true);
+//            ecosystem.setManipulationID(simIds.getManipId());
+//            ecosystem.setNetworkId(simIds.getNetId());
+//        } catch (SimulationException ex) {
+//            System.err.println(ex.getMessage());
+//        }
         // Update Zone Database
         EcosystemDAO.updateManipulationID(ecosystem.getID(), ecosystem.getManipulationID());
         // Initialize Biomass and Additional Parameters
@@ -245,11 +245,13 @@ public class EcosystemController {
             return;
         }
         // Send Ecosystem to Player
-        ResponseEcosystem response = new ResponseEcosystem();
-        response.setEcosystem(ecosystem.getID(), ecosystem.getType(), ecosystem.getScore());
-        response.setPlayer(player);
-        response.setZones(zones);
-        NetworkFunctions.sendToPlayer(response, player.getID());
+        if(!Constants.DEBUG_MODE){
+	        ResponseEcosystem response = new ResponseEcosystem();
+	        response.setEcosystem(ecosystem.getID(), ecosystem.getType(), ecosystem.getScore());
+	        response.setPlayer(player);
+	        response.setZones(zones);
+	        NetworkFunctions.sendToPlayer(response, player.getID());
+        }
         // Load Existing Species
         for (Species species : EcoSpeciesDAO.getSpecies(ecosystem.getID())) {
             lobby.getGameEngine().initializeSpecies(species, ecosystem);

@@ -192,7 +192,7 @@ public class Ecosystem {
         return nodeList;
     }
 
-    public void setAddNodeList(HashMap<Integer, Integer> addNodeList) {
+    public void setAddNodeList(Map<Integer, Integer> addNodeList) {
         this.addNodeList = addNodeList;
     }
 
