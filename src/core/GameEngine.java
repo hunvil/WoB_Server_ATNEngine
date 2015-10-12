@@ -303,6 +303,13 @@ public class GameEngine {
 	        }
     	}
         ecosystem.setSpecies(species);
+        SpeciesType type = species.getSpeciesType();
+        for (Entry<Integer, Float> entry : type.getNodeDistribution().entrySet()) {
+            int node_id = entry.getKey(), biomass = (int) (species.getTotalBiomass() * entry.getValue());
+
+            SpeciesZoneType szt = atnEngine.createSpeciesZoneType(node_id, biomass);
+            ecosystem.getZoneNodes().addNode(node_id, szt);
+        }
     }
     
     public void createSpeciesByPurchase(Player player, Map<Integer, Integer> speciesList, Ecosystem ecosystem) {

@@ -224,51 +224,14 @@ public class ATNTest {
 	        
 	        logger.info("EcosystemController.startEcosystem() functionality");
 	        EcosystemController.startEcosystem(player);
-	        // Get Player Ecosystem
-//	        ecosystem = EcosystemDAO.getEcosystem(player.getWorld().getID(), player.getID());
-//	        if (ecosystem == null) {
-//	            return;
-//	        }
-//	        
-//	        // Get Ecosystem Zones
-//	        logger.info("Get Ecosystem Zones");
-//	        List<Zone> zones = WorldZoneDAO.getZoneList(player.getWorld().getID(), player.getID());
-//	        if (zones.isEmpty()) {
-//	            return;
-//	        }
-//	        // Load Ecosystem Score History
-//	        logger.info("Load Ecosystem Score History");
-//	        ecosystem.setScoreCSV(CSVParser.convertCSVtoArrayList(CSVDAO.getScoreCSV(ecosystem.getID())));
-//	        // Ecosystem Reference
-//	        player.setEcosystem(ecosystem);
-//	        // Create Lobby to Contain Ecosystem
-//	        logger.info("Creating lobby to Contain Ecosystem");
-//	        lobby = LobbyController.getInstance().createEcosystemLobby(player, ecosystem);
-//	        if (lobby == null) {
-//	            return;
-//	        }
-//    
-//	        // Load Existing Species
-//	        logger.info("Load Existing Species");
-////	        Map<Integer, Integer> addNodeList = new HashMap<Integer, Integer>();
-//	        for (Species species : EcoSpeciesDAO.getSpecies(ecosystem.getID())) {
-//	        	ecosystem.setSpecies(species);
-////		        //Map the speciesList in the ecosystem to the addNodeList
-////	        	int biomassValue = species.getTotalBiomass();
-////	        	for(int node_id : species.getSpeciesType().getNodeList()){
-////	        		addNodeList.put(node_id, biomassValue);
-////	        	}
-//	        }
-////	        ecosystem.setAddNodeList(addNodeList);
+			lobby = EcosystemController.getLobby();
+			ecosystem = EcosystemController.getEcosystem();
 	        
 	        //We need to map the speciesList in the ecosystem to the zoneNodes in the ecosystem
-	        
 	        lobby.getGameEngine().forceSimulation();
 	        
-	        logger.info("ecosystem.updateEcosystemScore() functionality");
-	        ecosystem.updateEcosystemScore();
-	        EcosystemDAO.updateTime(ecosystem.getID());
-
+	        addDelay();
+	        
 	        HashMap<Integer, Integer> speciesList = new HashMap<Integer, Integer>();	//SpeciesID, Biomass
 	        speciesList.put(1005, 2000);	//To start we start with 1000 and add another 1000 to keep it consistent
 	        speciesList.put(2, 2494);		//African Clawless Otter
@@ -324,6 +287,13 @@ public class ATNTest {
 	       	        
 	   }
 	   
+	   public static void addDelay(){
+		   try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	   }
 	   public static void test8() throws FileNotFoundException, SQLException, SimulationException {
 	        List<Integer> simJobs = null;
 	        SimJob job = null;

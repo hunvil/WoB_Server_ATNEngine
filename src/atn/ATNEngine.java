@@ -575,7 +575,7 @@ public class ATNEngine {
       //Get previous timestep biomass for all species from web service
       //JTC, use new HashMap containing all current settings from zoneNodes, masterSpeciesList
       //HJR changing to make a deep copy here , I am getting a null while iterating
-      HashMap<Integer, SpeciesZoneType> masterSpeciesList = new HashMap<Integer, SpeciesZoneType>();     
+      HashMap<Integer, SpeciesZoneType> masterSpeciesList = new HashMap<Integer, SpeciesZoneType>(zoneNodes.getNodes());     
 
       HashMap<Integer, SpeciesZoneType> mNewSpecies = new HashMap<Integer, SpeciesZoneType>();
       //JTC, mUpdateBiomass renamed from mUpdateSpecies
@@ -619,18 +619,18 @@ public class ATNEngine {
 
       // Insert new species using web services
       if (!mNewSpecies.isEmpty()) {
-          try {
-        	  nodeConfig = addMultipleSpeciesType(
-                      mNewSpecies,
-                      masterSpeciesList,
-                      startTimestep,
-                      false,
-                      networkOrManipulationId
-              );
-          } catch (Exception ex) {
-              Log.println_e(ex.getMessage());
-          }
           zoneNodes.addNodes(mNewSpecies);
+      }
+      try {
+    	  nodeConfig = addMultipleSpeciesType(
+                  mNewSpecies,
+                  masterSpeciesList,
+                  startTimestep,
+                  false,
+                  networkOrManipulationId
+          );
+      } catch (Exception ex) {
+          Log.println_e(ex.getMessage());
       }
 //      // Update biomass changes to existing species using web services
 //      if (!mUpdateBiomass.isEmpty()) {
@@ -670,7 +670,9 @@ public class ATNEngine {
       try {
           //JTC - changed variable from "mSpecies = " to "mUpdateBiomass = "
           //mUpdateBiomass = getBiomass(networkOrManipulationId, 0, startTimestep + runTimestep);
-    	  mUpdateBiomass = submitManipRequest("ATN", nodeConfig, startTimestep + runTimestep, false, null);
+    	  if(!masterSpeciesList.isEmpty() || !mNewSpecies.isEmpty()){
+    		  mUpdateBiomass = submitManipRequest("ATN", nodeConfig, startTimestep + runTimestep, false, null);
+    	  }
       } catch (Exception ex) {
           Log.println_e(ex.getMessage());
           return null;
@@ -728,8 +730,8 @@ public class ATNEngine {
 //				  In addMultipleSpeciesType: node [31], biomass 1415, K = -1, R = -1.0000, X = 0.7953
 //				  In addMultipleSpeciesType: node [14], biomass 1752, K = -1, R = -1.0000, X = 0.0010
 	        StringBuilder builder = new StringBuilder();
-	        builder.append(manipSpeciesMap.size()).append(",");
-	        for (SpeciesZoneType species : manipSpeciesMap.values()) {
+	        builder.append(fullSpeciesMap.size()).append(",");
+	        for (SpeciesZoneType species : fullSpeciesMap.values()) {
 	            System.out.printf("In addMultipleSpeciesType: node [%d], "
 	                    + "biomass %d, K = %d, R = %6.4f, X = %6.4f\n", species.getNodeIndex(),
 	                    +(int) species.getCurrentBiomass(), (int) species.getParamK(),

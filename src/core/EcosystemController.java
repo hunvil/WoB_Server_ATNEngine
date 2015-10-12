@@ -44,6 +44,9 @@ public class EcosystemController {
     private static EcosystemController controller;
     // Reference Tables
     private final Map<Integer, Ecosystem> ecosystems = new HashMap<Integer, Ecosystem>(); // Ecosystem ID -> Ecosystem
+    private static EcosystemLobby lobby;
+    private static List<Zone> zones;
+    private static Ecosystem ecosystem;
 
     private EcosystemController() {
     }
@@ -229,11 +232,15 @@ public class EcosystemController {
         Ecosystem ecosystem = EcosystemDAO.getEcosystem(player.getWorld().getID(), player.getID());
         if (ecosystem == null) {
             return;
+        }else{
+        	setEcosystem(ecosystem);
         }
         // Get Ecosystem Zones
         List<Zone> zones = WorldZoneDAO.getZoneList(player.getWorld().getID(), player.getID());
         if (zones.isEmpty()) {
             return;
+        }else{
+        	setZones(zones);
         }
         // Load Ecosystem Score History
         ecosystem.setScoreCSV(CSVParser.convertCSVtoArrayList(CSVDAO.getScoreCSV(ecosystem.getID())));
@@ -243,6 +250,8 @@ public class EcosystemController {
         EcosystemLobby lobby = LobbyController.getInstance().createEcosystemLobby(player, ecosystem);
         if (lobby == null) {
             return;
+        }else{
+        	setLobby(lobby);
         }
         // Send Ecosystem to Player
         if(!Constants.DEBUG_MODE){
@@ -264,4 +273,29 @@ public class EcosystemController {
         // Update Last Access
         EcosystemDAO.updateTime(ecosystem.getID());
     }
+
+	private static void setLobby(EcosystemLobby l) {
+		lobby = l;
+	}
+
+	private static void setZones(List<Zone> z) {
+		zones = z;
+	}
+	private static void setEcosystem(Ecosystem e) {
+		ecosystem = e;
+	}
+	
+	public static Ecosystem getEcosystem() {
+		return ecosystem;
+	}
+	
+	public static EcosystemLobby getLobby() {
+		return lobby;
+	}
+
+	public static List<Zone> getZones() {
+		return zones;
+	}
+
+
 }
